@@ -26,3 +26,9 @@
 *.exe
 *.out
 *.app
+
+# debugging symbol tables
+*.dSYM
+
+# vim rc files
+.vimcludes
