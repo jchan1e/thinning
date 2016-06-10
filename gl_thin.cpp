@@ -11,9 +11,9 @@
 #include "imreader.h"
 
 #ifdef __APPLE__
-#include <OpenGL/gl.h>
+#include <OpenGL/glu.h>
 #else
-#include <GL/gl.h>
+#include <GL/glu.h>
 #endif
 #include <SDL.h>
 #include <SDL_OpenGL.h>
@@ -407,7 +407,6 @@ int CreateShaderProg(char* VertFile, char* FragFile)
 
 int main(int argc, char** argv)
 {
-   //unsigned int shader = CreateShaderProg(NULL, (char*)"shader.frag");
    ////////// read in 2D array of data
    int N = 100;
    int M = 150;
@@ -489,15 +488,39 @@ int main(int argc, char** argv)
    init(nn, mm);
    cout << nn << " " << mm << endl;
 
+   unsigned int shader = CreateShaderProg(NULL, (char*)"shader.frag");
+   unsigned int brader = CreateShaderProg(NULL, (char*)"border.frag");
+
    unsigned int data;
    glGenTextures(1,&data);
    glBindTexture(GL_TEXTURE_2D, data);
    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
    glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, N, M, 0, GL_RED, GL_UNSIGNED_INT, input);
+   unsigned int image;
+   glGenTextures(1,&image);
+   glBindTexture(GL_TEXTURE_2D, image);
+   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, N, M, 0, GL_RGB, GL_UNSIGNED_INT, 0);
+   unsigned int borders;
+   glGenTextures(1,&borders);
+   glBindTexture(GL_TEXTURE_2D, borders);
+   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+   glTexParameterf(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, N, M, 0, GL_RGB, GL_UNSIGNED_BYTE, 0);
+
+   unsigned int framebuf = 0;
+   unsigned int renderbuf = 0;
+   glGenFramebuffers(1,&framebuf);
+   glGenRenderbuffers(1,&renderbuf);
+   glBindFramebuffer(GL_FRAMEBUFFER, framebuf);
+   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,GL_TEXTURE_2D,image,0);
+   
    //////////
    
    // draw the original image to the screen
+   glBindFramebuffer(GL_FRAMEBUFFER, 0);
    glClear(GL_COLOR_BUFFER_BIT);
    glMatrixMode(GL_PROJECTION);
    glLoadIdentity();
@@ -541,6 +564,8 @@ int main(int argc, char** argv)
 //   }
 
    bool quit = false;
+   //if (sizeof(ivec2) == sizeof(float)*2)
+   //   quit = true;
    SDL_Event event;
 
    while (!quit)
@@ -575,54 +600,103 @@ int main(int argc, char** argv)
 
       SDL_Delay(100);
    }
-   //quit = false;
+   quit = false;
+   //printf("now this\n");
 
-   //glUseProgram(shader);
-   //   glClear(GL_COLOR_BUFFER_BIT);
-   //   glEnable(GL_TEXTURE_2D);
-   //   glBegin(GL_QUADS);
-   //   glTexCoord2f(0.0,0.0); glVertex2f(-1.0,-1.0);
-   //   glTexCoord2f(0.0,1.0); glVertex2f(-1.0, 1.0);
-   //   glTexCoord2f(1.0,1.0); glVertex2f( 1.0, 1.0);
-   //   glTexCoord2f(1.0,0.0); glVertex2f( 1.0,-1.0);
-   //   glEnd();
-   //   glDisable(GL_TEXTURE_2D);
-   //   glFlush();
-   //   SDL_GL_SwapWindow(window);
+   glBindFramebuffer(GL_FRAMEBUFFER, framebuf);
+   //glActiveTexture(GL_TEXTURE1);
+   //glBindTexture(GL_TEXTURE_2D, borders);
+   //glActiveTexture(GL_TEXTURE0);
+   glBindTexture(GL_TEXTURE_2D, data);
+   glUseProgram(brader);
+      int id;
+      id = glGetUniformLocation(brader, "DX");
+      if (id >= 0) glUniform1f(id, 1.0/nn);
+      id = glGetUniformLocation(brader, "DY");
+      if (id >= 0) glUniform1f(id, 1.0/mm);
+      id = glGetUniformLocation(brader, "img");
+      if (id >= 0) glUniform1i(id, 0);
 
-   //glUseProgram(0);
-   //while (!quit)
-   //{
-   //   while(SDL_PollEvent(&event))
-   //   {
-   //      switch(event.type)
-   //      {
-   //         case SDL_KEYDOWN:
-   //            switch(event.key.keysym.scancode)
-   //            {
-   //               case SDL_SCANCODE_Q:
-   //                  quit = true;
-   //               default:
-   //                  break;
-   //            }
-   //         default:
-   //            break;
-   //      }
-   //   }
-   //   glClear(GL_COLOR_BUFFER_BIT);
-   //   glEnable(GL_TEXTURE_2D);
-   //   glBegin(GL_QUADS);
-   //   glTexCoord2f(0.0,0.0); glVertex2f(-1.0,-1.0);
-   //   glTexCoord2f(0.0,1.0); glVertex2f(-1.0, 1.0);
-   //   glTexCoord2f(1.0,1.0); glVertex2f( 1.0, 1.0);
-   //   glTexCoord2f(1.0,0.0); glVertex2f( 1.0,-1.0);
-   //   glEnd();
-   //   glDisable(GL_TEXTURE_2D);
-   //   glFlush();
-   //   SDL_GL_SwapWindow(window);
-   //   
-   //   SDL_Delay(100);
-   //}
+      glClear(GL_COLOR_BUFFER_BIT);
+      glEnable(GL_TEXTURE_2D);
+      glBegin(GL_QUADS);
+      glTexCoord2f(0.0,0.0); glVertex2f(-1.0,-1.0);
+      glTexCoord2f(0.0,1.0); glVertex2f(-1.0, 1.0);
+      glTexCoord2f(1.0,1.0); glVertex2f( 1.0, 1.0);
+      glTexCoord2f(1.0,0.0); glVertex2f( 1.0,-1.0);
+      glEnd();
+      glBindTexture(GL_TEXTURE_2D, borders);
+      glCopyTexImage2D(GL_TEXTURE_2D,0,GL_RGB,0,0,nn,mm,0);
+      glDisable(GL_TEXTURE_2D);
+      glFlush();
+      //SDL_GL_SwapWindow(window);
+   glActiveTexture(GL_TEXTURE1);
+   glBindTexture(GL_TEXTURE_2D, borders);
+   glActiveTexture(GL_TEXTURE0);
+   glBindTexture(GL_TEXTURE_2D, data);
+   glUseProgram(shader);
+      id = glGetUniformLocation(shader, "DX");
+      if (id >= 0) glUniform1f(id, 1.0/nn);
+      id = glGetUniformLocation(shader, "DY");
+      if (id >= 0) glUniform1f(id, 1.0/mm);
+      id = glGetUniformLocation(shader, "img");
+      if (id >= 0) glUniform1i(id, 0);
+      id = glGetUniformLocation(shader, "borders");
+      if (id >= 0) glUniform1i(id, 1);
+
+      glClear(GL_COLOR_BUFFER_BIT);
+      glEnable(GL_TEXTURE_2D);
+      glBegin(GL_QUADS);
+      glTexCoord2f(0.0,0.0); glVertex2f(-1.0,-1.0);
+      glTexCoord2f(0.0,1.0); glVertex2f(-1.0, 1.0);
+      glTexCoord2f(1.0,1.0); glVertex2f( 1.0, 1.0);
+      glTexCoord2f(1.0,0.0); glVertex2f( 1.0,-1.0);
+      glEnd();
+      glCopyTexImage2D(GL_TEXTURE_2D,0,GL_RGB,0,0,nn,mm,0);
+      glDisable(GL_TEXTURE_2D);
+      glFlush();
+      //SDL_GL_SwapWindow(window);
+
+   cout << gluErrorString(glGetError()) << endl;
+
+   SDL_Delay(1000);
+
+   glBindFramebuffer(GL_FRAMEBUFFER, 0);
+   glActiveTexture(GL_TEXTURE0);
+   glBindTexture(GL_TEXTURE_2D, data);
+   glUseProgram(0);
+   while (!quit)
+   {
+      while(SDL_PollEvent(&event))
+      {
+         switch(event.type)
+         {
+            case SDL_KEYDOWN:
+               switch(event.key.keysym.scancode)
+               {
+                  case SDL_SCANCODE_Q:
+                     quit = true;
+                  default:
+                     break;
+               }
+            default:
+               break;
+         }
+      }
+      glClear(GL_COLOR_BUFFER_BIT);
+      glEnable(GL_TEXTURE_2D);
+      glBegin(GL_QUADS);
+      glTexCoord2f(0.0,0.0); glVertex2f(-1.0,-1.0);
+      glTexCoord2f(0.0,1.0); glVertex2f(-1.0, 1.0);
+      glTexCoord2f(1.0,1.0); glVertex2f( 1.0, 1.0);
+      glTexCoord2f(1.0,0.0); glVertex2f( 1.0,-1.0);
+      glEnd();
+      glDisable(GL_TEXTURE_2D);
+      glFlush();
+      SDL_GL_SwapWindow(window);
+      
+      SDL_Delay(100);
+   }
 
 //#pragma omp for collapse(2)
 //   for (int i=0; i < N; ++i)
